@@ -71,58 +71,155 @@ if (isset($_GET['delete'])) {
 }
 
 $categories = $conn->query("SELECT * FROM categories");
-$songs = $conn->query("SELECT s.*, c.name AS category FROM songs s LEFT JOIN categories c ON s.category_id = c.id ORDER BY s.id DESC");
+$songs_result = $conn->query("SELECT s.*, c.name AS category_name FROM songs s LEFT JOIN categories c ON s.category_id = c.id ORDER BY s.id DESC");
+$songs = [];
+while($row = $songs_result->fetch_assoc()) {
+    $songs[] = $row;
+}
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Add Songs</title>
+    <meta charset="UTF-8" />
+    <title>Manage Songs</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             padding: 20px;
             background: #f5f5f5;
+            color: #222;
         }
         h2 {
             text-align: center;
+            margin-bottom: 1rem;
         }
         .button {
             background: #4CAF50;
             color: white;
-            padding: 8px 14px;
+            padding: 10px 16px;
             border: none;
             cursor: pointer;
-            margin: 5px;
-            border-radius: 4px;
-        }
-        .button.edit { background: #2196F3; }
-        .button.delete { background: #f44336; }
-        table {
-            width: 100%;
-            background: white;
-            border-collapse: collapse;
-            margin-top: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 12px;
-        }
-        th {
-            background: #eee;
-        }
-        img { width: 60px; }
-        .message {
-            background: #dff0d8;
-            padding: 10px;
-            border: 1px solid #3c763d;
-            color: #3c763d;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             border-radius: 5px;
+            font-size: 1rem;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        a {
+            color: #0066cc;
+            text-decoration: none;
+            margin-left: 20px;
+            font-weight: 600;
+        }
+        a:hover {
+            text-decoration: underline;
         }
 
-        /* Modal */
+        .message {
+            background: #dff0d8;
+            padding: 12px;
+            border: 1px solid #3c763d;
+            color: #3c763d;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        table.songs-table {
+            width: 100%;
+            border-collapse: collapse;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+            background: #fff;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        table.songs-table thead {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        table.songs-table th,
+        table.songs-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #ddd;
+            vertical-align: middle;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        table.songs-table tbody tr:hover {
+            background-color: #f0f7ff;
+        }
+
+        .cover-cell img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        .no-cover {
+            color: #888;
+            font-style: italic;
+            font-size: 0.9rem;
+        }
+
+        .lyrics-snippet {
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .public-label {
+            color: #2e7d32;
+            font-weight: 600;
+        }
+
+        .private-label {
+            color: #c62828;
+            font-weight: 600;
+        }
+
+        .btn-edit, .btn-delete {
+            background-color: #007bff;
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            margin: 0 2px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-delete {
+            background-color: #d32f2f;
+        }
+
+        .btn-edit:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-delete:hover {
+            background-color: #9a1b1b;
+        }
+
+        @media (max-width: 720px) {
+            table.songs-table th, table.songs-table td {
+                font-size: 0.85rem;
+                padding: 8px 10px;
+            }
+            .lyrics-snippet {
+                max-width: 140px;
+            }
+        }
+
+        /* Modal Styles (keep your existing style or tweak) */
         .modal {
             display: none;
             position: fixed;
@@ -139,36 +236,61 @@ $songs = $conn->query("SELECT s.*, c.name AS category FROM songs s LEFT JOIN cat
             max-width: 600px;
             position: relative;
             border-radius: 6px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         .close {
             position: absolute;
             top: 10px; right: 20px;
-            font-size: 24px;
+            font-size: 28px;
             cursor: pointer;
+            font-weight: bold;
+            color: #666;
+            transition: color 0.3s ease;
+        }
+        .close:hover {
+            color: #000;
         }
         input, textarea, select {
             width: 100%;
             padding: 10px;
             border-radius: 5px;
             border: 1px solid #ccc;
-            font-size: 16px;
+            font-size: 1rem;
             box-sizing: border-box;
-            margin-top: 6px;
-          }
-         .checkbox-label {
+            margin-top: 8px;
+            margin-bottom: 15px;
+        }
+        .checkbox-label {
             display: inline-flex;
             align-items: center;
-            font-size: 16px;
-            margin-top: 10px;
+            font-size: 1rem;
+            gap: 6px;
             cursor: pointer;
-            gap: 2px; /* reduce this to make them closer */
+            margin-top: 0;
         }
-
         .checkbox-label input[type="checkbox"] {
             margin: 0;
+            width: 18px;
+            height: 18px;
         }
+        .logout-button {
+    background-color: #d32f2f;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 8px 14px;
+    font-size: 1rem;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    color: white;
+    box-shadow: 0 2px 6px rgba(211, 47, 47, 0.5);
+    transition: background-color 0.3s ease;
+}
 
-
+.logout-button:hover {
+    background-color: #9a1b1b;
+}
 
     </style>
 </head>
@@ -176,43 +298,58 @@ $songs = $conn->query("SELECT s.*, c.name AS category FROM songs s LEFT JOIN cat
 
 <?php if (isset($_SESSION['message'])): ?>
     <div class="message"><?= $_SESSION['message'] ?></div>
-    <script>
-        setTimeout(() => document.querySelector('.message')?.remove(), 3000);
-    </script>
+    <script>setTimeout(() => document.querySelector('.message')?.remove(), 3000);</script>
     <?php unset($_SESSION['message']); ?>
 <?php endif; ?>
 
-<h2>Add Songs</h2>
+<h2>Manage Songs</h2>
 
 <button class="button" onclick="openAddModal()">+ Add New Song</button>
-<p><a href="dashboard.php">← Back to Dashboard</a></p>
+<a href="manage_category.php">Go to Categories</a>
 
-<table>
+<table class="songs-table">
     <thead>
         <tr>
-            <th>Title</th><th>Composer</th><th>Category</th><th>Cover</th><th>Video</th><th>Public</th><th>Date uploaded</th><th>Actions</th> 
+            <th>Cover</th>
+            <th>Title</th>
+            <th>Composer</th>
+            <th>Category</th>
+            <!-- <th>Lyrics Snippet</th> -->
+            <!-- <th>Video</th> -->
+            <th>Visibility</th>
+            <th>Uploaded On</th>
+            <th>Actions</th>
         </tr>
     </thead>
     <tbody>
-        <?php while ($song = $songs->fetch_assoc()): ?>
+        <?php foreach ($songs as $song): ?>
         <tr>
+            <td class="cover-cell">
+                <?php if ($song['cover_photo']): ?>
+                    <img src="<?= htmlspecialchars($song['cover_photo']) ?>" alt="Cover for <?= htmlspecialchars($song['title']) ?>" />
+                <?php else: ?>
+                    <span class="no-cover">No Image</span>
+                <?php endif; ?>
+            </td>
             <td><?= htmlspecialchars($song['title']) ?></td>
             <td><?= htmlspecialchars($song['composer']) ?></td>
-            <td><?= htmlspecialchars($song['category']) ?></td>
-            <td><?php if ($song['cover_photo']): ?><img src="<?= $song['cover_photo'] ?>" /><?php endif; ?></td>
-            <td><a href="<?= htmlspecialchars($song['video_link']) ?>" target="_blank">Link</a></td>
-            <td><?= $song['is_public'] ? 'Yes' : 'No' ?></td>
-            <td><?= date('Y-m-d H:i', strtotime($song['uploaded_at'])) ?></td>
+            <td><?= htmlspecialchars($song['category_name']) ?></td>
+            <!-- <td class="lyrics-snippet"><?= htmlspecialchars(mb_substr($song['lyrics'], 0, 60)) ?><?= mb_strlen($song['lyrics']) > 60 ? '…' : '' ?></td> -->
+            
             <td>
-                <button class="button edit" data-song='<?= htmlspecialchars(json_encode($song), ENT_QUOTES, 'UTF-8') ?>' onclick="openEditModalFromAttr(this)">Edit</button>
-
-                <a href="?delete=<?= $song['id'] ?>" class="button delete" onclick="return confirmDelete()">Delete</a>
+                <?= $song['is_public'] ? '<span class="public-label">Public</span>' : '<span class="private-label">Private</span>' ?>
             </td>
-
+            <td><?= date('Y-m-d', strtotime($song['uploaded_at'])) ?></td>
+            <td>
+                <button class="btn-edit" data-song='<?= htmlspecialchars(json_encode($song), ENT_QUOTES, 'UTF-8') ?>' onclick="openEditModalFromAttr(this)">Edit</button>
+                <a href="?delete=<?= $song['id'] ?>" class="btn-delete" onclick="return confirmDelete()">Delete</a>
+            </td>
         </tr>
-        <?php endwhile; ?>
+        <?php endforeach; ?>
     </tbody>
 </table>
+<button class="button logout-button" onclick="window.location.href='../logout.php'">Logout</button>
+
 
 <!-- ADD MODAL -->
 <div id="addModal" class="modal">
@@ -232,13 +369,10 @@ $songs = $conn->query("SELECT s.*, c.name AS category FROM songs s LEFT JOIN cat
                     <option value="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['name']) ?></option>
                 <?php endwhile; ?>
             </select>
-           <label class="checkbox-label">
-            <input type="checkbox" name="is_public" checked> <span>Make Public</span>
+            <label class="checkbox-label">
+                <input type="checkbox" name="is_public" checked> <span>Make Public</span>
             </label>
-
-
-
-            <button class="button">Submit</button>
+            <button class="button" type="submit">Submit</button>
         </form>
     </div>
 </div>
@@ -264,47 +398,45 @@ $songs = $conn->query("SELECT s.*, c.name AS category FROM songs s LEFT JOIN cat
                 <?php endwhile; ?>
             </select>
             <label class="checkbox-label">
-    <input type="checkbox" id="edit_public" name="is_public"> <span>Make Public</span>
-</label>
-
-            <button class="button">Update</button>
+                <input type="checkbox" name="is_public" id="edit_is_public"> <span>Make Public</span>
+            </label>
+            <button class="button" type="submit">Update</button>
         </form>
+        
     </div>
+    
 </div>
 
 <script>
 function openAddModal() {
     document.getElementById('addModal').style.display = 'block';
 }
-function openEditModal(data) {
-    document.getElementById('edit_id').value = data.id;
-    document.getElementById('edit_title').value = data.title;
-    document.getElementById('edit_composer').value = data.composer;
-    document.getElementById('edit_lyrics').value = data.lyrics;
-    document.getElementById('edit_video').value = data.video_link;
-    document.getElementById('edit_existing_cover').value = data.cover_photo;
-    document.getElementById('edit_category').value = data.category_id;
-    document.getElementById('edit_public').checked = data.is_public == 1;
-
-    document.getElementById('editModal').style.display = 'block';
-}
 function closeModal(id) {
     document.getElementById(id).style.display = 'none';
 }
 window.onclick = function(event) {
     ['addModal', 'editModal'].forEach(id => {
-        const modal = document.getElementById(id);
-        if (event.target == modal) modal.style.display = "none";
+        let modal = document.getElementById(id);
+        if (event.target === modal) modal.style.display = 'none';
     });
 }
+
+function openEditModalFromAttr(button) {
+    let song = JSON.parse(button.getAttribute('data-song'));
+    document.getElementById('edit_id').value = song.id;
+    document.getElementById('edit_title').value = song.title;
+    document.getElementById('edit_composer').value = song.composer;
+    document.getElementById('edit_lyrics').value = song.lyrics;
+    document.getElementById('edit_existing_cover').value = song.cover_photo;
+    document.getElementById('edit_video').value = song.video_link || '';
+    document.getElementById('edit_category').value = song.category_id;
+    document.getElementById('edit_is_public').checked = song.is_public == 1;
+    document.getElementById('editModal').style.display = 'block';
+}
+
 function confirmDelete() {
     return confirm('Are you sure you want to delete this song?');
 }
-function openEditModalFromAttr(button) {
-    const data = JSON.parse(button.getAttribute('data-song'));
-    openEditModal(data);
-}
-
 </script>
 
 </body>

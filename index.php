@@ -2,10 +2,8 @@
 include 'includes/db.php';
 session_start();
 
-// Get all categories
 $categories = $conn->query("SELECT * FROM categories");
 
-// Filter by category if selected
 $where = "WHERE is_public = 1";
 if (isset($_GET['category_id']) && $_GET['category_id'] !== '') {
     $cat_id = intval($_GET['category_id']);
@@ -14,12 +12,10 @@ if (isset($_GET['category_id']) && $_GET['category_id'] !== '') {
     $cat_id = '';
 }
 
-// Get public songs
 $songs = $conn->query("SELECT songs.*, categories.name as category_name FROM songs 
     JOIN categories ON songs.category_id = categories.id 
     $where ORDER BY songs.id DESC");
 
-// Extract YouTube Video ID from a URL
 function getYouTubeID($url) {
     if (preg_match('/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([^\&\?\/]+)/', $url, $matches)) {
         return $matches[1];
@@ -29,179 +25,249 @@ function getYouTubeID($url) {
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>🎶 Song Lyrics and Video Collection</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: #f5f7fa;
-        }
+  <meta charset="UTF-8" />
+  <title>🎵 Ultimate Song Vault</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-        .container {
-            max-width: 1200px;
-            margin: 30px auto;
-            padding: 20px;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.1);
-        }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #f0f4ff, #e3e9ff);
+      color: #2c2f42;
+    }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            flex-wrap: wrap;
-        }
+    header {
+      background:  #4CAF50;
+      color: white;
+      padding: 30px 0;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
 
-        .header h1 {
-            margin: 0;
-            font-size: 26px;
-        }
+    .header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
 
-        .auth {
-            font-size: 14px;
-        }
+    .header-content h1 {
+      font-size: 28px;
+      font-weight: 700;
+    }
 
-        .auth a {
-            text-decoration: none;
-            color: #007bff;
-            font-weight: bold;
-        }
+    .auth a {
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+    }
 
-        .filter {
-            margin-bottom: 20px;
-        }
+    main {
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
 
-        select {
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            min-width: 200px;
-        }
+    .filter-bar {
+      text-align: right;
+      margin-bottom: 30px;
+    }
 
-        .songs-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 20px;
-        }
+    select {
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      font-size: 14px;
+    }
 
-        .song-card {
-            background: #fafafa;
-            border: 1px solid #e1e1e1;
-            padding: 20px;
-            border-radius: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+    .songs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 30px;
+    }
 
-        .song-card h2 {
-            margin: 10px 0;
-            font-size: 20px;
-            text-align: center;
-        }
+    .song-card {
+      backdrop-filter: blur(12px);
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
+      transition: transform 0.2s ease, box-shadow 0.3s ease;
+    }
 
-        .cover-photo {
-            width: 100%;
-            max-width: 250px;
-            height: auto;
-            margin-bottom: 15px;
-            border-radius: 6px;
-        }
+    .song-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    }
 
-        .video-thumb {
-            width: 100%;
-            max-width: 250px;
-            margin-top: 10px;
-            border-radius: 8px;
-            transition: 0.3s ease;
-        }
+    .song-card img,
+    .song-card iframe {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      border: none;
+      border-radius: 0;
+    }
 
-        .video-thumb:hover {
-            opacity: 0.85;
-            transform: scale(1.01);
-        }
+    .song-content {
+      padding: 20px;
+    }
 
-        pre {
-            white-space: pre-wrap;
-            background: #f1f1f1;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 15px;
-            margin-top: 10px;
-            width: 100%;
-        }
+    .song-content h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #1a1c2b;
+    }
 
-        .no-songs {
-            text-align: center;
-            font-size: 18px;
-            color: #777;
-        }
-    </style>
+    .category-tag {
+      background: #4CAF50;
+      color: white;
+      padding: 5px 12px;
+      font-size: 12px;
+      border-radius: 8px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+
+    pre {
+      background: #f9faff;
+     
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      max-height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+
+    .no-songs {
+      text-align: center;
+      font-size: 18px;
+      color: #777;
+      margin-top: 50px;
+    }
+
+    .video-wrapper {
+      position: relative;
+    }
+
+    .video-thumbnail {
+      cursor: pointer;
+      display: block;
+    }
+
+    @media (max-width: 600px) {
+      .header-content {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+      }
+
+      .filter-bar {
+        text-align: center;
+      }
+    }
+    .login-button {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: #2f8f2f; /* a darker green */
+  color: white;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.login-button:hover {
+  background-color: #246b24;
+}
+
+  </style>
 </head>
 <body>
 
-<div class="container">
+<header>
+  <div class="header-content">
+    <h1>🎧 Ultimate Song Vault</h1>
+    <div class="auth">
+      <?php if (isset($_SESSION['admin'])): ?>
+        Hello, <strong><?= htmlspecialchars($_SESSION['admin']) ?></strong> | 
+        <a href="logout.php">Logout</a>
+      <?php else: ?>
+        <a href="login.php" class="login-button">Admin Login</a>
 
-    <div class="header">
-        <h1>🎵 Song Lyrics and Video Collection</h1>
-        <div class="auth">
-            <?php if (isset($_SESSION['admin'])): ?>
-                Welcome, <strong><?= htmlspecialchars($_SESSION['admin']) ?></strong> |
-                <a href="logout.php">Logout</a>
-            <?php else: ?>
-                <a href="login.php">🔐 Admin Login</a>
-            <?php endif; ?>
-        </div>
+      <?php endif; ?>
     </div>
+  </div>
+</header>
 
-    <div class="filter">
-        <form method="GET">
-            <label for="category_id"><strong>Filter by Category:</strong></label>
-            <select name="category_id" id="category_id" onchange="this.form.submit()">
-                <option value="">-- All Categories --</option>
-                <?php while ($row = $categories->fetch_assoc()): ?>
-                    <option value="<?= $row['id'] ?>" <?= ($cat_id == $row['id']) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($row['name']) ?>
-                    </option>
-                <?php endwhile; ?>
-            </select>
-        </form>
-    </div>
+<main>
+  <div class="filter-bar">
+    <form method="GET">
+      <select name="category_id" onchange="this.form.submit()">
+        <option value="">🎼 All Categories</option>
+        <?php while ($row = $categories->fetch_assoc()): ?>
+          <option value="<?= $row['id'] ?>" <?= ($cat_id == $row['id']) ? 'selected' : '' ?>>
+            <?= htmlspecialchars($row['name']) ?>
+          </option>
+        <?php endwhile; ?>
+      </select>
+    </form>
+  </div>
 
-    <?php if ($songs->num_rows > 0): ?>
-        <div class="songs-grid">
-            <?php while ($song = $songs->fetch_assoc()): ?>
-                <div class="song-card">
-                    <?php if ($song['cover_photo']): ?>
-                        <img src="uploads/<?= htmlspecialchars($song['cover_photo']) ?>" alt="Cover Photo" class="cover-photo">
-                    <?php endif; ?>
+  <?php if ($songs->num_rows > 0): ?>
+    <div class="songs-grid">
+      <?php while ($song = $songs->fetch_assoc()): ?>
+        <div class="song-card">
+          <?php if ($song['video_link']):
+            $videoID = getYouTubeID($song['video_link']);
+            if ($videoID): ?>
+              <div class="video-wrapper" data-video-id="<?= $videoID ?>">
+                <img src="https://img.youtube.com/vi/<?= $videoID ?>/hqdefault.jpg" alt="Video Thumbnail" class="video-thumbnail">
+              </div>
+            <?php endif;
+          endif; ?>
 
-                    <h2><?= htmlspecialchars($song['title']) ?></h2>
-                    <p><strong>Category:</strong> <?= htmlspecialchars($song['category_name']) ?></p>
-
-                    <pre><?= htmlspecialchars($song['lyrics']) ?></pre>
-
-                    <?php if ($song['video_link']):
-                        $videoID = getYouTubeID($song['video_link']);
-                        if ($videoID): ?>
-                            <a href="https://www.youtube.com/watch?v=<?= $videoID ?>" target="_blank">
-                                <img src="https://img.youtube.com/vi/<?= $videoID ?>/0.jpg" class="video-thumb" alt="Video Thumbnail">
-                            </a>
-                        <?php endif;
-                    endif; ?>
-                </div>
-            <?php endwhile; ?>
+          <div class="song-content">
+            <span class="category-tag"><?= htmlspecialchars($song['category_name']) ?></span>
+            <h2><?= htmlspecialchars($song['title']) ?></h2>
+            <pre><?= htmlspecialchars($song['lyrics']) ?></pre>
+          </div>
         </div>
-    <?php else: ?>
-        <p class="no-songs">No public songs found.</p>
-    <?php endif; ?>
+      <?php endwhile; ?>
+    </div>
+  <?php else: ?>
+    <p class="no-songs">No public songs found. Try another category.</p>
+  <?php endif; ?>
+</main>
 
-</div>
+<script>
+  document.querySelectorAll('.video-thumbnail').forEach(thumbnail => {
+    thumbnail.addEventListener('click', function () {
+      const wrapper = this.parentElement;
+      const videoID = wrapper.getAttribute('data-video-id');
+      wrapper.innerHTML = `
+        <iframe width="100%" height="180" src="https://www.youtube.com/embed/${videoID}?autoplay=1" 
+          frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      `;
+    });
+  });
+</script>
 
 </body>
 </html>
